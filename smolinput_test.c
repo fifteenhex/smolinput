@@ -24,6 +24,8 @@ int main(int argc, char **argv, char **envp)
 	struct smolinput_key key;
 	int ret;
 
+	(void) envp;
+
 	listdevices();
 
 	ret = smolinput_open(&keyboard, argc > 1 ? argv[1] : NULL);

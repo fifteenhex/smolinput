@@ -1,6 +1,19 @@
 #ifndef __SMOLINPUT_H_
 #define __SMOLINPUT_H_
 
+#ifndef NOLIBC
+#include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <time.h>
+#include <unistd.h>
+#endif
+
 #include <linux/ioctl.h>
 #include <linux/input-event-codes.h>
 
