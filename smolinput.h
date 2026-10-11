@@ -52,13 +52,13 @@ struct smolinput_keyboard {
 	unsigned long held[SMOLINPUT_LONGSFORBITS(KEY_CNT)];
 };
 
-static int smolinput_testbit(const unsigned long *bits, unsigned int bit)
+static inline int smolinput_testbit(const unsigned long *bits, unsigned int bit)
 {
 	return (bits[bit / SMOLINPUT_BITSPERLONG] >>
 		(bit % SMOLINPUT_BITSPERLONG)) & 1ul;
 }
 
-static void smolinput_setbit(unsigned long *bits, unsigned int bit, int to)
+static inline void smolinput_setbit(unsigned long *bits, unsigned int bit, int to)
 {
 	unsigned long mask = 1ul << (bit % SMOLINPUT_BITSPERLONG);
 
@@ -68,7 +68,7 @@ static void smolinput_setbit(unsigned long *bits, unsigned int bit, int to)
 		bits[bit / SMOLINPUT_BITSPERLONG] &= ~mask;
 }
 
-static unsigned int smolinput_countbits(const unsigned long *bits,
+static inline unsigned int smolinput_countbits(const unsigned long *bits,
 					unsigned int first, unsigned int last)
 {
 	unsigned int bit, count = 0;
@@ -79,7 +79,7 @@ static unsigned int smolinput_countbits(const unsigned long *bits,
 	return count;
 }
 
-static int smolinput_getbits(int fd, unsigned int ev, unsigned long *bits, size_t sz)
+static inline int smolinput_getbits(int fd, unsigned int ev, unsigned long *bits, size_t sz)
 {
 	int ret;
 
@@ -92,7 +92,7 @@ static int smolinput_getbits(int fd, unsigned int ev, unsigned long *bits, size_
 	return 0;
 }
 
-static int smolinput_getname(int fd, char *name, size_t sz)
+static inline int smolinput_getname(int fd, char *name, size_t sz)
 {
 	int ret;
 
@@ -106,7 +106,7 @@ static int smolinput_getname(int fd, char *name, size_t sz)
 }
 
 /* Couldn't work out how to do this, asked claude, recheck! */
-static int smolinput_score(const unsigned long *evbits, const unsigned long *keybits)
+static inline int smolinput_score(const unsigned long *evbits, const unsigned long *keybits)
 {
 	unsigned int letters;
 	int score;
@@ -138,7 +138,7 @@ static int smolinput_score(const unsigned long *evbits, const unsigned long *key
 	return score;
 }
 
-static int smolinput_scorefd(int fd)
+static inline int smolinput_scorefd(int fd)
 {
 	unsigned long evbits[SMOLINPUT_LONGSFORBITS(EV_CNT)];
 	unsigned long keybits[SMOLINPUT_LONGSFORBITS(KEY_CNT)];
@@ -152,12 +152,12 @@ static int smolinput_scorefd(int fd)
 	return smolinput_score(evbits, keybits);
 }
 
-static int smolinput_devicepath(char *path, size_t sz, unsigned int index)
+static inline int smolinput_devicepath(char *path, size_t sz, unsigned int index)
 {
 	return snprintf(path, sz, "%s%u", SMOLINPUT_DEVICEPATH, index);
 }
 
-static void smolinput_insert(struct smolinput_device *devices, unsigned int found,
+static inline void smolinput_insert(struct smolinput_device *devices, unsigned int found,
 			     const struct smolinput_device *device)
 {
 	unsigned int i;
@@ -168,7 +168,7 @@ static void smolinput_insert(struct smolinput_device *devices, unsigned int foun
 	devices[i] = *device;
 }
 
-static int smolinput_enumerate(struct smolinput_device *devices, unsigned int max)
+static inline int smolinput_enumerate(struct smolinput_device *devices, unsigned int max)
 {
 	unsigned int index, found = 0;
 
@@ -199,7 +199,7 @@ static int smolinput_enumerate(struct smolinput_device *devices, unsigned int ma
 	return (int)found;
 }
 
-static void smolinput_close(struct smolinput_keyboard *keyboard)
+static inline void smolinput_close(struct smolinput_keyboard *keyboard)
 {
 	if (keyboard->fd >= 0)
 		close(keyboard->fd);
@@ -209,7 +209,7 @@ static void smolinput_close(struct smolinput_keyboard *keyboard)
 
 #define __smolinput_cleanup_keyboard __attribute__((cleanup(smolinput_close)))
 
-static int smolinput_open(struct smolinput_keyboard *keyboard, const char *path)
+static inline int smolinput_open(struct smolinput_keyboard *keyboard, const char *path)
 {
 	char found[sizeof(SMOLINPUT_DEVICEPATH) + 12];
 	unsigned int index = 0;
@@ -241,7 +241,7 @@ static int smolinput_open(struct smolinput_keyboard *keyboard, const char *path)
 	return 0;
 }
 
-static int smolinput_grab(struct smolinput_keyboard *keyboard, int grab)
+static inline int smolinput_grab(struct smolinput_keyboard *keyboard, int grab)
 {
 	int ret;
 
@@ -250,7 +250,7 @@ static int smolinput_grab(struct smolinput_keyboard *keyboard, int grab)
 	return ret;
 }
 
-static int smolinput_readkey(struct smolinput_keyboard *keyboard,
+static inline int smolinput_readkey(struct smolinput_keyboard *keyboard,
 			     struct smolinput_key *key)
 {
 	struct smolinput_event event;
@@ -282,7 +282,7 @@ static int smolinput_readkey(struct smolinput_keyboard *keyboard,
 }
 
 /* 0 == non-blocking  */
-static int smolinput_waitkey(struct smolinput_keyboard *keyboard,
+static inline int smolinput_waitkey(struct smolinput_keyboard *keyboard,
 			     struct smolinput_key *key, int timeout)
 {
 	struct pollfd fds = {
@@ -298,7 +298,7 @@ static int smolinput_waitkey(struct smolinput_keyboard *keyboard,
 	return smolinput_readkey(keyboard, key);
 }
 
-static int smolinput_sync(struct smolinput_keyboard *keyboard)
+static inline int smolinput_sync(struct smolinput_keyboard *keyboard)
 {
 	int ret;
 
@@ -310,7 +310,7 @@ static int smolinput_sync(struct smolinput_keyboard *keyboard)
 	return 0;
 }
 
-static int smolinput_isdown(const struct smolinput_keyboard *keyboard, uint16_t code)
+static inline int smolinput_isdown(const struct smolinput_keyboard *keyboard, uint16_t code)
 {
 	if (code >= KEY_CNT)
 		return 0;
