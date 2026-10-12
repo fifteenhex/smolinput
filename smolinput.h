@@ -167,6 +167,33 @@ static inline int smolinput_score(const unsigned long *evbits,
 	return score;
 }
 
+struct smolinput_keyset {
+	const uint16_t *codes;
+	unsigned int ncodes;
+};
+
+/*
+ * device that has the most of the of the keys we want wins,
+ * this is basically for finding a gpio based keyboard that has
+ * a set of keys we are looking for.
+ */
+static inline int smolinput_score_keyset(const unsigned long *evbits,
+					 const unsigned long *keybits, void *arg)
+{
+	const struct smolinput_keyset *wanted = arg;
+	unsigned int have = 0;
+	unsigned int i;
+
+	(void) evbits;
+
+	for (i = 0; i < wanted->ncodes; i++)
+		if (wanted->codes[i] < KEY_CNT &&
+		    smolinput_testbit(keybits, wanted->codes[i]))
+			have++;
+
+	return have ? (int) have : -1;
+}
+
 static inline int smolinput_scorefd(int fd, smolinput_scorer scorer, void *arg)
 {
 	unsigned long evbits[SMOLINPUT_LONGSFORBITS(EV_CNT)];
