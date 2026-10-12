@@ -320,21 +320,50 @@ static inline int smolinput_readkey(struct smolinput_keyboard *keyboard,
 	}
 }
 
+/* Wait for key events on ~multiple~ fds */
+static inline int smolinput_waitkeys(struct smolinput_keyboard *keyboards,
+				     unsigned int nkeyboards,
+				     struct smolinput_key *key, int timeout,
+				     unsigned int *which)
+{
+	struct pollfd fds[SMOLINPUT_MAXDEVICES];
+	unsigned int i;
+	int ret;
+
+	if (nkeyboards > SMOLINPUT_MAXDEVICES)
+		return -EINVAL;
+
+	for (i = 0; i < nkeyboards; i++) {
+		fds[i].fd = keyboards[i].fd;
+		fds[i].events = POLLIN;
+	}
+
+	ret = poll(fds, nkeyboards, timeout);
+	if (ret <= 0)
+		return ret;
+
+	for (i = 0; i < nkeyboards; i++) {
+		if (!fds[i].revents)
+			continue;
+
+		ret = smolinput_readkey(&keyboards[i], key);
+		if (!ret)
+			continue;
+
+		if (which)
+			*which = i;
+
+		return ret;
+	}
+
+	return 0;
+}
+
 /* 0 == non-blocking  */
 static inline int smolinput_waitkey(struct smolinput_keyboard *keyboard,
 			     struct smolinput_key *key, int timeout)
 {
-	struct pollfd fds = {
-		.fd = keyboard->fd,
-		.events = POLLIN,
-	};
-	int ret;
-
-	ret = poll(&fds, 1, timeout);
-	if (ret <= 0)
-		return ret;
-
-	return smolinput_readkey(keyboard, key);
+	return smolinput_waitkeys(keyboard, 1, key, timeout, NULL);
 }
 
 static inline int smolinput_sync(struct smolinput_keyboard *keyboard)
