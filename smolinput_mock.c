@@ -31,6 +31,7 @@ struct mock_uinput_setup {
 #define MOCK_UI_DEV_SETUP	_IOW('U', 3, struct mock_uinput_setup)
 #define MOCK_UI_SET_EVBIT	_IOW('U', 100, int)
 #define MOCK_UI_SET_KEYBIT	_IOW('U', 101, int)
+#define MOCK_UI_GET_SYSNAME(_len) _IOC(_IOC_READ, 'U', 44, _len)
 
 #define MOCK_BUS_VIRTUAL	0x06
 
@@ -151,6 +152,32 @@ static int mock_create(const char *name, int *fd)
 	return 0;
 }
 
+/* Work out the node for our device so you can pass it to another prog */
+static void mock_what_node(int fd, const char *name)
+{
+	char path[sizeof(SMOLINPUT_DEVICEPATH) + 12];
+	char sysname[32] = { 0 };
+	unsigned int i;
+	char dir[128];
+
+	if (ioctl(fd, MOCK_UI_GET_SYSNAME(sizeof(sysname) - 1), sysname) < 0) {
+		fprintf(stderr, "get sysname failed\n");
+		return;
+	}
+
+	for (i = 0; i < SMOLINPUT_MAXDEVICES; i++) {
+		snprintf(dir, sizeof(dir), SMOLINPUT_SYSFSPATH "%s/event%u", sysname, i);
+		if (access(dir, F_OK))
+			continue;
+
+		smolinput_devicepath(path, sizeof(path), i);
+		printf("%s is %s\n", name, path);
+		return;
+	}
+
+	fprintf(stderr, "no event node under " SMOLINPUT_SYSFSPATH "%s for %s\n", sysname, name);
+}
+
 int main(int argc, char **argv, char **envp)
 {
 	const char *name = "smolinput-mock";
@@ -162,6 +189,8 @@ int main(int argc, char **argv, char **envp)
 
 	if (mock_create(name, &fd))
 		return 1;
+
+	mock_what_node(fd, name);
 
 	return 0;
 }

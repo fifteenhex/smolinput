@@ -26,6 +26,10 @@
 #define SMOLINPUT_DEVICEPATH	"/dev/input/event"
 #endif
 
+#ifndef SMOLINPUT_SYSFSPATH
+#define SMOLINPUT_SYSFSPATH	"/sys/class/input/"
+#endif
+
 /* linux/input.h can't be used with nolibc right now */
 #define SMOLINPUT_EVIOCGNAME(_len)	_IOC(_IOC_READ, 'E', 0x06, _len)
 #define SMOLINPUT_EVIOCGKEY(_len)	_IOC(_IOC_READ, 'E', 0x18, _len)
