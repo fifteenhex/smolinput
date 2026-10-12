@@ -11,10 +11,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: nolibc
+      - name: libc
+        run: make
+
+      - name: grab nolibc
         run: |
           git clone --depth 1 --filter=blob:none --sparse \
             https://github.com/torvalds/linux.git linux
           git -C linux sparse-checkout set tools/include/nolibc
+          git clone --depth 1 https://github.com/fifteenhex/nolibc-extensions.git
 
-      - run: make NOLIBCDIR=$PWD/linux/tools/include/nolibc
+      - name: nolibc
+        run: |
+          make SMOL_ARCH=x86_64 CROSS_COMPILE=x86_64-linux-gnu- NOPIE=1 \
+            NOLIBCDIR=$PWD/linux/tools/include/nolibc \
+            NOLIBCEXTDIR=$PWD/nolibc-extensions
