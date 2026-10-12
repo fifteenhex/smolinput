@@ -20,6 +20,8 @@
 #define SMOLINPUT_NAMESZ	64
 #define SMOLINPUT_MAXDEVICES	32
 
+#define SMOLINPUT_ARRAYSZ(_a)	(sizeof(_a) / sizeof(_a[0]))
+
 #ifndef SMOLINPUT_DEVICEPATH
 #define SMOLINPUT_DEVICEPATH	"/dev/input/event"
 #endif
