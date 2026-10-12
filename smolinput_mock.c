@@ -239,13 +239,58 @@ static void mock_what_node(int fd, const char *name)
 	fprintf(stderr, "no event node under " SMOLINPUT_SYSFSPATH "%s for %s\n", sysname, name);
 }
 
+/* A key per line from stdin until EOF, for pressing buttons over a serial console */
+static int mock_from_stdin(int fd, unsigned int hold_ms)
+{
+	unsigned int len = 0;
+	char line[64];
+
+	for (;;) {
+		uint16_t code;
+		ssize_t got;
+		char c;
+
+		got = read(0, &c, 1);
+		if (got <= 0)
+			return 0;
+
+		if (c != '\n' && c != '\r') {
+			if (len < sizeof(line) - 1)
+				line[len++] = c;
+			continue;
+		}
+
+		line[len] = 0;
+		len = 0;
+
+		if (!line[0])
+			continue;
+
+		/* This is a hack to allow exiting if your shell is a bit broken :) */
+		if (!strcmp(line, "getmeouttahere"))
+			return 0;
+
+		code = mock_keycode(line);
+		if (!code) {
+			printf("not a key: %s\n", line);
+			continue;
+		}
+
+		if (mock_tap(fd, code, hold_ms))
+			return -1;
+
+		printf("pressed %s (%u)\n", line, code);
+	}
+}
+
 static void usage(const char *progname)
 {
-	fprintf(stderr, "usage: %s [-n name] [-w ms] [-h ms] [-d ms] key ...\n", progname);
+	fprintf(stderr, "usage: %s [-n name] [-w ms] [-h ms] [-d ms] [-i] [key ...]\n", progname);
 	fprintf(stderr, "\t-n  device name (default smolinput-mock)\n");
 	fprintf(stderr, "\t-w  delay in ms between creating the device and starting input\n");
 	fprintf(stderr, "\t-h  hold time in ms (default 60ms)\n");
 	fprintf(stderr, "\t-d  delay between keys in ms (default 150ms)\n");
+	fprintf(stderr, "\t-i  interactive mode, send a key per line on stdin, end with EOF or \"getmeouttahere\"\n");
 	fprintf(stderr, "a key is a letter, a digit, a name (up down left right enter"
 			" esc menu power space tab) or a keycode\n");
 }
@@ -257,11 +302,12 @@ int main(int argc, char **argv, char **envp)
 	unsigned int wait_ms = 500;
 	unsigned int hold_ms = 60;
 	unsigned int gap_ms = 150;
+	bool interactive = false;
 	int i, opt;
 
 	(void) envp;
 
-	while ((opt = getopt(argc, argv, "n:w:h:d:")) != -1) {
+	while ((opt = getopt(argc, argv, "n:w:h:d:i")) != -1) {
 		switch (opt) {
 		case 'n':
 			name = optarg;
@@ -275,13 +321,16 @@ int main(int argc, char **argv, char **envp)
 		case 'd':
 			gap_ms = (unsigned int) atoi(optarg);
 			break;
+		case 'i':
+			interactive = true;
+			break;
 		default:
 			usage(argv[0]);
 			return 1;
 		}
 	}
 
-	if (optind >= argc) {
+	if (!interactive && optind >= argc) {
 		usage(argv[0]);
 		return 1;
 	}
@@ -313,6 +362,9 @@ int main(int argc, char **argv, char **envp)
 		if (i + 1 < argc)
 			mock_sleep_ms(gap_ms);
 	}
+
+	if (interactive && mock_from_stdin(fd, hold_ms))
+		return 1;
 
 	return 0;
 }
