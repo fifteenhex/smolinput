@@ -2,4 +2,5 @@
 *.elf
 *.elf.dbg
 .buildmode.*
+*.tar
 smolinput_test
