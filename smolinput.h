@@ -124,11 +124,21 @@ static inline int smolinput_getname(int fd, char *name, size_t sz)
 	return 0;
 }
 
+/*
+ * Filtering callback for working out which device you want,
+ * highest wins and -1 rejects totally.
+ */
+typedef int (*smolinput_scorer)(const unsigned long *evbits,
+				const unsigned long *keybits, void *arg);
+
 /* Couldn't work out how to do this, asked claude, recheck! */
-static inline int smolinput_score(const unsigned long *evbits, const unsigned long *keybits)
+static inline int smolinput_score(const unsigned long *evbits,
+				  const unsigned long *keybits, void *arg)
 {
 	unsigned int letters;
 	int score;
+
+	(void) arg;
 
 	if (!smolinput_testbit(evbits, EV_KEY))
 		return -1;
@@ -157,7 +167,7 @@ static inline int smolinput_score(const unsigned long *evbits, const unsigned lo
 	return score;
 }
 
-static inline int smolinput_scorefd(int fd)
+static inline int smolinput_scorefd(int fd, smolinput_scorer scorer, void *arg)
 {
 	unsigned long evbits[SMOLINPUT_LONGSFORBITS(EV_CNT)];
 	unsigned long keybits[SMOLINPUT_LONGSFORBITS(KEY_CNT)];
@@ -168,7 +178,7 @@ static inline int smolinput_scorefd(int fd)
 	if (smolinput_getbits(fd, EV_KEY, keybits, sizeof(keybits)))
 		return -1;
 
-	return smolinput_score(evbits, keybits);
+	return scorer(evbits, keybits, arg);
 }
 
 static inline int smolinput_devicepath(char *path, size_t sz, unsigned int index)
@@ -187,7 +197,9 @@ static inline void smolinput_insert(struct smolinput_device *devices, unsigned i
 	devices[i] = *device;
 }
 
-static inline int smolinput_enumerate(struct smolinput_device *devices, unsigned int max)
+static inline int smolinput_enumerate_scored(struct smolinput_device *devices,
+					    unsigned int max,
+					    smolinput_scorer scorer, void *arg)
 {
 	unsigned int index, found = 0;
 
@@ -202,7 +214,7 @@ static inline int smolinput_enumerate(struct smolinput_device *devices, unsigned
 		if (fd < 0)
 			continue;
 
-		score = smolinput_scorefd(fd);
+		score = smolinput_scorefd(fd, scorer, arg);
 		if (score >= 0) {
 			device.index = index;
 			device.score = score;
@@ -216,6 +228,11 @@ static inline int smolinput_enumerate(struct smolinput_device *devices, unsigned
 	}
 
 	return (int)found;
+}
+
+static inline int smolinput_enumerate(struct smolinput_device *devices, unsigned int max)
+{
+	return smolinput_enumerate_scored(devices, max, smolinput_score, NULL);
 }
 
 static inline void smolinput_close(struct smolinput_keyboard *keyboard)
@@ -244,7 +261,9 @@ static inline int smolinput_adopt(struct smolinput_keyboard *keyboard, int fd)
 	return 0;
 }
 
-static inline int smolinput_open(struct smolinput_keyboard *keyboard, const char *path)
+static inline int smolinput_open_scored(struct smolinput_keyboard *keyboard,
+				       const char *path, smolinput_scorer scorer,
+				       void *arg)
 {
 	char found[sizeof(SMOLINPUT_DEVICEPATH) + 12];
 	unsigned int index = 0;
@@ -259,7 +278,8 @@ static inline int smolinput_open(struct smolinput_keyboard *keyboard, const char
 
 	if (!path) {
 		struct smolinput_device devices[SMOLINPUT_MAXDEVICES];
-		int n = smolinput_enumerate(devices, SMOLINPUT_MAXDEVICES);
+		int n = smolinput_enumerate_scored(devices, SMOLINPUT_MAXDEVICES,
+						  scorer, arg);
 
 		if (n <= 0)
 			return -ENODEV;
@@ -278,6 +298,11 @@ static inline int smolinput_open(struct smolinput_keyboard *keyboard, const char
 	smolinput_getname(fd, keyboard->name, sizeof(keyboard->name));
 
 	return 0;
+}
+
+static inline int smolinput_open(struct smolinput_keyboard *keyboard, const char *path)
+{
+	return smolinput_open_scored(keyboard, path, smolinput_score, NULL);
 }
 
 static inline int smolinput_grab(struct smolinput_keyboard *keyboard, int grab)
