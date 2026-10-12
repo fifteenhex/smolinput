@@ -239,6 +239,17 @@ static void mock_what_node(int fd, const char *name)
 	fprintf(stderr, "no event node under " SMOLINPUT_SYSFSPATH "%s for %s\n", sysname, name);
 }
 
+static void usage(const char *progname)
+{
+	fprintf(stderr, "usage: %s [-n name] [-w ms] [-h ms] [-d ms] key ...\n", progname);
+	fprintf(stderr, "\t-n  device name (default smolinput-mock)\n");
+	fprintf(stderr, "\t-w  delay in ms between creating the device and starting input\n");
+	fprintf(stderr, "\t-h  hold time in ms (default 60ms)\n");
+	fprintf(stderr, "\t-d  delay between keys in ms (default 150ms)\n");
+	fprintf(stderr, "a key is a letter, a digit, a name (up down left right enter"
+			" esc menu power space tab) or a keycode\n");
+}
+
 int main(int argc, char **argv, char **envp)
 {
 	const char *name = "smolinput-mock";
@@ -246,17 +257,37 @@ int main(int argc, char **argv, char **envp)
 	unsigned int wait_ms = 500;
 	unsigned int hold_ms = 60;
 	unsigned int gap_ms = 150;
-	int i;
+	int i, opt;
 
 	(void) envp;
 
-	if (argc < 2) {
-		fprintf(stderr, "usage: %s key ...\n", argv[0]);
+	while ((opt = getopt(argc, argv, "n:w:h:d:")) != -1) {
+		switch (opt) {
+		case 'n':
+			name = optarg;
+			break;
+		case 'w':
+			wait_ms = (unsigned int) atoi(optarg);
+			break;
+		case 'h':
+			hold_ms = (unsigned int) atoi(optarg);
+			break;
+		case 'd':
+			gap_ms = (unsigned int) atoi(optarg);
+			break;
+		default:
+			usage(argv[0]);
+			return 1;
+		}
+	}
+
+	if (optind >= argc) {
+		usage(argv[0]);
 		return 1;
 	}
 
 	/* Make sure the keys are valid before doing anything */
-	for (i = 1; i < argc; i++) {
+	for (i = optind; i < argc; i++) {
 		if (!mock_keycode(argv[i])) {
 			fprintf(stderr, "not a key: %s\n", argv[i]);
 			return 1;
@@ -269,7 +300,7 @@ int main(int argc, char **argv, char **envp)
 	mock_what_node(fd, name);
 	mock_sleep_ms(wait_ms);
 
-	for (i = 1; i < argc; i++) {
+	for (i = optind; i < argc; i++) {
 		uint16_t code = mock_keycode(argv[i]);
 
 		if (mock_tap(fd, code, hold_ms)) {
