@@ -231,6 +231,10 @@ static inline int smolinput_open(struct smolinput_keyboard *keyboard, const char
 	memset(keyboard, 0, sizeof(*keyboard));
 	keyboard->fd = -1;
 
+	/* Allow passing the keyboard via the environment */
+	if (!path)
+		path = getenv("SMOLINPUT_DEVICE_KEYBOARD");
+
 	if (!path) {
 		struct smolinput_device devices[SMOLINPUT_MAXDEVICES];
 		int n = smolinput_enumerate(devices, SMOLINPUT_MAXDEVICES);
