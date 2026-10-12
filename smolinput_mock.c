@@ -39,57 +39,77 @@ struct mock_uinput_setup {
 #define MOCK_UINPUT_PATH	"/dev/uinput"
 #endif
 
-/* All of the keys we claim to have */
-static const uint16_t mock_keys[] = {
-	KEY_UP,
-	KEY_DOWN,
-	KEY_LEFT,
-	KEY_RIGHT,
-	KEY_A,
-	KEY_B,
-	KEY_C,
-	KEY_D,
-	KEY_E,
-	KEY_F,
-	KEY_G,
-	KEY_H,
-	KEY_I,
-	KEY_J,
-	KEY_K,
-	KEY_L,
-	KEY_M,
-	KEY_N,
-	KEY_O,
-	KEY_P,
-	KEY_Q,
-	KEY_R,
-	KEY_S,
-	KEY_T,
-	KEY_U,
-	KEY_V,
-	KEY_W,
-	KEY_X,
-	KEY_Y,
-	KEY_Z,
-	KEY_0,
-	KEY_1,
-	KEY_2,
-	KEY_3,
-	KEY_4,
-	KEY_5,
-	KEY_6,
-	KEY_7,
-	KEY_8,
-	KEY_9,
-	KEY_ENTER,
-	KEY_ESC,
-	KEY_MENU,
-	KEY_POWER,
-	KEY_SPACE,
-	KEY_TAB,
-	KEY_BACKSPACE,
-	KEY_LEFTSHIFT,
+/* All of the keys we claim to have, with names */
+static const struct {
+	const char *name;
+	uint16_t code;
+} mock_keys[] = {
+	{ "up", KEY_UP },
+	{ "down", KEY_DOWN },
+	{ "left", KEY_LEFT },
+	{ "right", KEY_RIGHT },
+	{ "a", KEY_A },
+	{ "b", KEY_B },
+	{ "c", KEY_C },
+	{ "d", KEY_D },
+	{ "e", KEY_E },
+	{ "f", KEY_F },
+	{ "g", KEY_G },
+	{ "h", KEY_H },
+	{ "i", KEY_I },
+	{ "j", KEY_J },
+	{ "k", KEY_K },
+	{ "l", KEY_L },
+	{ "m", KEY_M },
+	{ "n", KEY_N },
+	{ "o", KEY_O },
+	{ "p", KEY_P },
+	{ "q", KEY_Q },
+	{ "r", KEY_R },
+	{ "s", KEY_S },
+	{ "t", KEY_T },
+	{ "u", KEY_U },
+	{ "v", KEY_V },
+	{ "w", KEY_W },
+	{ "x", KEY_X },
+	{ "y", KEY_Y },
+	{ "z", KEY_Z },
+	{ "0", KEY_0 },
+	{ "1", KEY_1 },
+	{ "2", KEY_2 },
+	{ "3", KEY_3 },
+	{ "4", KEY_4 },
+	{ "5", KEY_5 },
+	{ "6", KEY_6 },
+	{ "7", KEY_7 },
+	{ "8", KEY_8 },
+	{ "9", KEY_9 },
+	{ "enter", KEY_ENTER },
+	{ "start", KEY_ENTER },
+	{ "esc", KEY_ESC },
+	{ "select", KEY_ESC },
+	{ "menu", KEY_MENU },
+	{ "power", KEY_POWER },
+	{ "space", KEY_SPACE },
+	{ "tab", KEY_TAB },
+	{ "backspace", KEY_BACKSPACE },
+	{ "shift", KEY_LEFTSHIFT },
 };
+
+/* 0 == dunno */
+static uint16_t mock_keycode(const char *what)
+{
+	unsigned int code;
+	unsigned int i;
+
+	for (i = 0; i < SMOLINPUT_ARRAYSZ(mock_keys); i++)
+		if (!strcmp(what, mock_keys[i].name))
+			return mock_keys[i].code;
+
+	code = (unsigned int) atoi(what);
+
+	return code && code < KEY_CNT ? (uint16_t) code : 0;
+}
 
 static void mock_sleep_ms(unsigned int ms)
 {
@@ -172,8 +192,8 @@ static int mock_create(const char *name, int *fd)
 	}
 
 	for (i = 0; i < SMOLINPUT_ARRAYSZ(mock_keys); i++) {
-		if (ioctl(*fd, MOCK_UI_SET_KEYBIT, (int) mock_keys[i]) < 0) {
-			fprintf(stderr, "set keybit failed for %u\n", mock_keys[i]);
+		if (ioctl(*fd, MOCK_UI_SET_KEYBIT, (int) mock_keys[i].code) < 0) {
+			fprintf(stderr, "set keybit failed for %u\n", mock_keys[i].code);
 			return -1;
 		}
 	}
@@ -231,8 +251,16 @@ int main(int argc, char **argv, char **envp)
 	(void) envp;
 
 	if (argc < 2) {
-		fprintf(stderr, "usage: %s keycode ...\n", argv[0]);
+		fprintf(stderr, "usage: %s key ...\n", argv[0]);
 		return 1;
+	}
+
+	/* Make sure the keys are valid before doing anything */
+	for (i = 1; i < argc; i++) {
+		if (!mock_keycode(argv[i])) {
+			fprintf(stderr, "not a key: %s\n", argv[i]);
+			return 1;
+		}
 	}
 
 	if (mock_create(name, &fd))
@@ -242,7 +270,7 @@ int main(int argc, char **argv, char **envp)
 	mock_sleep_ms(wait_ms);
 
 	for (i = 1; i < argc; i++) {
-		uint16_t code = (uint16_t) atoi(argv[i]);
+		uint16_t code = mock_keycode(argv[i]);
 
 		if (mock_tap(fd, code, hold_ms)) {
 			fprintf(stderr, "could not press %s\n", argv[i]);
