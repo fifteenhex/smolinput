@@ -91,6 +91,47 @@ static const uint16_t mock_keys[] = {
 	KEY_LEFTSHIFT,
 };
 
+static void mock_sleep_ms(unsigned int ms)
+{
+	struct timespec ts = {
+		.tv_sec = ms / 1000,
+		.tv_nsec = (long) (ms % 1000) * 1000000,
+	};
+
+	if (ms)
+		nanosleep(&ts, NULL);
+}
+
+static int mock_write_event(int fd, uint16_t type, uint16_t code, int32_t value)
+{
+	struct smolinput_event event = {
+		.type = type,
+		.code = code,
+		.value = value,
+	};
+
+	if (write(fd, &event, sizeof(event)) != (ssize_t) sizeof(event))
+		return -1;
+
+	return 0;
+}
+
+/* Do a press, hold, release */
+static int mock_tap(int fd, uint16_t code, unsigned int hold_ms)
+{
+	if (mock_write_event(fd, EV_KEY, code, 1) ||
+	    mock_write_event(fd, EV_SYN, SYN_REPORT, 0))
+		return -1;
+
+	mock_sleep_ms(hold_ms);
+
+	if (mock_write_event(fd, EV_KEY, code, 0) ||
+	    mock_write_event(fd, EV_SYN, SYN_REPORT, 0))
+		return -1;
+
+	return 0;
+}
+
 static void mock_closefd(int *fd)
 {
 	if (*fd >= 0)
@@ -182,15 +223,37 @@ int main(int argc, char **argv, char **envp)
 {
 	const char *name = "smolinput-mock";
 	int __mock_cleanup_device fd = -1;
+	unsigned int wait_ms = 500;
+	unsigned int hold_ms = 60;
+	unsigned int gap_ms = 150;
+	int i;
 
-	(void) argc;
-	(void) argv;
 	(void) envp;
+
+	if (argc < 2) {
+		fprintf(stderr, "usage: %s keycode ...\n", argv[0]);
+		return 1;
+	}
 
 	if (mock_create(name, &fd))
 		return 1;
 
 	mock_what_node(fd, name);
+	mock_sleep_ms(wait_ms);
+
+	for (i = 1; i < argc; i++) {
+		uint16_t code = (uint16_t) atoi(argv[i]);
+
+		if (mock_tap(fd, code, hold_ms)) {
+			fprintf(stderr, "could not press %s\n", argv[i]);
+			return 1;
+		}
+
+		printf("pressed %s (%u)\n", argv[i], code);
+
+		if (i + 1 < argc)
+			mock_sleep_ms(gap_ms);
+	}
 
 	return 0;
 }
