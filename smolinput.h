@@ -228,6 +228,22 @@ static inline void smolinput_close(struct smolinput_keyboard *keyboard)
 
 #define __smolinput_cleanup_keyboard __attribute__((cleanup(smolinput_close)))
 
+/*
+ * Take a non-blocking fd opened somewhere else and use it for input,
+ * this allows input to be passed to a child program.
+ */
+static inline int smolinput_adopt(struct smolinput_keyboard *keyboard, int fd)
+{
+	if (fd < 0)
+		return -EINVAL;
+
+	memset(keyboard, 0, sizeof(*keyboard));
+	keyboard->fd = fd;
+	smolinput_getname(fd, keyboard->name, sizeof(keyboard->name));
+
+	return 0;
+}
+
 static inline int smolinput_open(struct smolinput_keyboard *keyboard, const char *path)
 {
 	char found[sizeof(SMOLINPUT_DEVICEPATH) + 12];
